@@ -14,6 +14,7 @@ import (
 // Global variables to track usage (will be set from main package)
 var UseRealPAM bool
 var UseBiometric bool
+var ClearBioCache bool
 
 // AuthenticateWithRealPAM performs real PAM authentication on Linux
 func AuthenticateWithRealPAM(username, password string) bool {

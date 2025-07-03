@@ -11,6 +11,7 @@ import (
 // Global variables placeholders (not used on other platforms)
 var UseBiometric bool
 var UseRealPAM bool
+var ClearBioCache bool
 
 // AuthenticateWithRealPAM stub for non-Linux platforms
 func AuthenticateWithRealPAM(username, password string) bool {

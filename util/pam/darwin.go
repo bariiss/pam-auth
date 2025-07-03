@@ -15,6 +15,7 @@ import (
 // Global variables to track usage (will be set from main package)
 var UseBiometric bool
 var UseRealPAM bool
+var ClearBioCache bool
 
 // AuthenticateWithDSCL performs authentication using dscl command for macOS
 func AuthenticateWithDSCL(username, password string) bool {
@@ -97,6 +98,12 @@ func AuthenticateWithBiometrics(username string) bool {
 		fmt.Println("Falling back to password authentication...")
 		return false
 	}
+
+	// Clear cache if requested
+	if ClearBioCache {
+		ClearBiometricCache()
+	}
+
 	fmt.Printf("🔐 Requesting biometric authentication for user: %s\n", username)
 	fmt.Println("👆 PAM Authentication Tool will request TouchID/FaceID permission...")
 	fmt.Println("💡 Please follow the system prompts to authenticate")
@@ -188,6 +195,27 @@ Please use TouchID/FaceID or enter your password:" default answer "" with hidden
 
 	fmt.Println("⚠️ Authentication failed")
 	return false
+}
+
+// ClearBiometricCache clears the TouchID/FaceID authentication cache
+func ClearBiometricCache() {
+	if ClearBioCache {
+		fmt.Println("🧹 Clearing biometric authentication cache...")
+
+		// Clear authorization database cache
+		cmd := exec.Command("security", "authorizationdb", "remove", "authenticate-session")
+		cmd.Run() // Ignore errors, this might not exist
+
+		// Clear keychain authorization cache
+		cmd = exec.Command("security", "authorization", "remove", "authenticate-session")
+		cmd.Run() // Ignore errors
+
+		// Alternative method: try to clear system.login.console cache
+		cmd = exec.Command("security", "authorizationdb", "remove", "system.login.console")
+		cmd.Run() // Ignore errors
+
+		fmt.Println("✅ Biometric cache cleared")
+	}
 }
 
 // Linux-specific function stubs for Darwin builds

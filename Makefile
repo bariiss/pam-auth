@@ -32,6 +32,8 @@ help:
 	@echo "$(YELLOW)Run Commands:$(RESET)"
 	@echo "  make run           - Run with go run (no build)"
 	@echo "  make run-bio       - Run with biometric authentication"
+	@echo "  make run-bio-clear - Run with biometric authentication (cache cleared)"
+	@echo "  make run-pam       - Run with real PAM authentication (Linux)"
 	@echo "  make run-pam       - Run with real PAM authentication (Linux)"
 	@echo "  make run-help      - Show application help"
 	@echo "  make run-version   - Show application version"
@@ -75,6 +77,10 @@ run:
 run-bio:
 	@echo "$(BLUE)Running with biometric authentication...$(RESET)"
 	go run $(MAIN_FILE) --biometric
+
+run-bio-clear:
+	@echo "$(BLUE)Running with biometric authentication (cache cleared)...$(RESET)"
+	go run $(MAIN_FILE) --biometric --clear-cache
 
 run-pam:
 	@echo "$(BLUE)Running with real PAM authentication...$(RESET)"

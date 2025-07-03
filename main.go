@@ -44,8 +44,9 @@ var versionCmd = &cobra.Command{
 
 // Biometric authentication flags
 var (
-	useBiometric bool
-	useRealPAM   bool
+	useBiometric  bool
+	useRealPAM    bool
+	clearBioCache bool
 )
 
 func init() {
@@ -53,6 +54,8 @@ func init() {
 	rootCmd.Flags().BoolVarP(&useBiometric, "biometric", "b", false, "Use biometric authentication (TouchID/FaceID) on macOS")
 	// Add real PAM authentication flag for Linux
 	rootCmd.Flags().BoolVar(&useRealPAM, "real-pam", false, "Use real PAM authentication (Linux only) - requires system permissions")
+	// Add cache clearing flag for biometric authentication
+	rootCmd.Flags().BoolVar(&clearBioCache, "clear-cache", false, "Clear biometric authentication cache before authenticating")
 }
 
 func main() {
@@ -234,6 +237,7 @@ func runAuthentication() {
 		// Set the global variables for the pam package
 		pam.UseBiometric = useBiometric
 		pam.UseRealPAM = useRealPAM
+		pam.ClearBioCache = clearBioCache
 
 		fmt.Printf("🔐 Attempting biometric authentication for user: %s\n", username)
 		if pam.AuthenticateWithBiometrics(username) {
