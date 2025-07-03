@@ -140,6 +140,8 @@ func AuthenticateWithSecurityFramework(username string) bool {
 	case success := <-done:
 		if success {
 			fmt.Println("✅ Biometric authentication successful!")
+			// Show detailed biometric user information
+			GetUserBiometricInfo(username)
 			return true
 		}
 		fmt.Printf("⚠️ Biometric authentication failed\n")
@@ -187,6 +189,8 @@ Please use TouchID/FaceID or enter your password:" default answer "" with hidden
 	outputStr := strings.TrimSpace(string(output))
 	if strings.Contains(outputStr, "SUCCESS") {
 		fmt.Println("✅ Biometric authentication successful!")
+		// Show detailed biometric user information
+		GetUserBiometricInfo(username)
 		return true
 	} else if strings.Contains(outputStr, "CANCEL") {
 		fmt.Println("❌ Authentication cancelled by user")
@@ -215,6 +219,140 @@ func ClearBiometricCache() {
 		cmd.Run() // Ignore errors
 
 		fmt.Println("✅ Biometric cache cleared")
+	}
+}
+
+// GetUserBiometricInfo retrieves biometric-related user information on macOS
+func GetUserBiometricInfo(username string) {
+	fmt.Println("\n🔐 Biometric User Information:")
+	fmt.Println("==============================")
+
+	// Get user's GeneratedUID (unique identifier)
+	getGeneratedUID(username)
+
+	// Get TouchID enrollment information
+	getTouchIDInfo(username)
+
+	// Get user's authentication authority information
+	getAuthenticationAuthority(username)
+
+	// Get Secure Enclave information
+	getSecureEnclaveInfo()
+}
+
+// getGeneratedUID retrieves the user's unique generated UID
+func getGeneratedUID(username string) {
+	cmd := exec.Command("dscl", ".", "-read", "/Users/"+username, "GeneratedUID")
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "GeneratedUID:") {
+				guid := strings.TrimSpace(strings.Replace(line, "GeneratedUID:", "", 1))
+				fmt.Printf("🆔 User GUID: %s\n", guid)
+				break
+			}
+		}
+	} else {
+		fmt.Println("⚠️ Could not retrieve User GUID")
+	}
+}
+
+// getTouchIDInfo gets TouchID enrollment information
+func getTouchIDInfo(username string) {
+	// Check if user has TouchID enrolled by checking biometric availability
+	if IsBiometricAvailable() {
+		fmt.Println("👆 TouchID: Available and working")
+
+		// Check for local authentication
+		cmd := exec.Command("dscl", ".", "-read", "/Users/"+username, "AuthenticationAuthority")
+		output, err := cmd.Output()
+		if err == nil && len(output) > 0 {
+			outputStr := string(output)
+			if strings.Contains(outputStr, "LocalCachedUser") {
+				fmt.Println("� Biometric: LocalCachedUser enabled")
+			}
+			if strings.Contains(outputStr, "ShadowHash") {
+				fmt.Println("🔒 Authentication: Secure Shadow Hash enabled")
+			}
+		}
+	} else {
+		fmt.Println("👆 TouchID: Not available on this device")
+	}
+}
+
+// getAuthenticationAuthority gets detailed authentication authority info
+func getAuthenticationAuthority(username string) {
+	cmd := exec.Command("dscl", ".", "-read", "/Users/"+username, "AuthenticationAuthority")
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		outputStr := string(output)
+		lines := strings.Split(outputStr, "\n")
+
+		fmt.Println("🔑 Authentication Methods:")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, ";") {
+				if strings.Contains(line, "Kerberosv5") {
+					fmt.Println("   • Kerberos v5 authentication")
+				} else if strings.Contains(line, "ShadowHash") {
+					fmt.Println("   • Shadow Hash authentication")
+				} else if strings.Contains(line, "LocalCachedUser") {
+					fmt.Println("   • Local Cached User (TouchID capable)")
+				}
+			}
+		}
+	}
+}
+
+// getSecureEnclaveInfo gets Secure Enclave information
+func getSecureEnclaveInfo() {
+	// Check if Secure Enclave is available
+	cmd := exec.Command("system_profiler", "SPHardwareDataType")
+	output, err := cmd.Output()
+	if err == nil {
+		outputStr := string(output)
+
+		// Look for T1, T2, M1, M2 chips which have Secure Enclave
+		if strings.Contains(outputStr, "Apple T2") {
+			fmt.Println("🛡️ Secure Enclave: Apple T2 Security Chip")
+		} else if strings.Contains(outputStr, "Apple T1") {
+			fmt.Println("🛡️ Secure Enclave: Apple T1 Security Chip")
+		} else if strings.Contains(outputStr, "Apple M1") {
+			fmt.Println("🛡️ Secure Enclave: Apple M1 Processor (with Secure Enclave)")
+		} else if strings.Contains(outputStr, "Apple M2") {
+			fmt.Println("🛡️ Secure Enclave: Apple M2 Processor (with Secure Enclave)")
+		} else if strings.Contains(outputStr, "Apple M3") {
+			fmt.Println("🛡️ Secure Enclave: Apple M3 Processor (with Secure Enclave)")
+		} else {
+			// Check for general Secure Enclave mention
+			if strings.Contains(outputStr, "Secure Enclave") {
+				fmt.Println("🛡️ Secure Enclave: Available")
+			} else {
+				fmt.Println("�️ Secure Enclave: Not detected (may be Intel-based Mac)")
+			}
+		}
+	} else {
+		fmt.Println("🛡️ Secure Enclave: Could not determine status")
+	}
+
+	// Get hardware UUID
+	getHardwareUUID()
+}
+
+// getHardwareUUID gets the hardware UUID of the Mac
+func getHardwareUUID() {
+	cmd := exec.Command("system_profiler", "SPHardwareDataType")
+	output, err := cmd.Output()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "Hardware UUID") {
+				uuid := strings.TrimSpace(strings.Split(line, ":")[1])
+				fmt.Printf("🖥️ Hardware UUID: %s\n", uuid)
+				break
+			}
+		}
 	}
 }
 
