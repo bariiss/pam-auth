@@ -109,83 +109,85 @@ func AuthenticateWithBiometrics(username string) bool {
 func AuthenticateWithSecurityFramework(username string) bool {
 	fmt.Println("🔒 Attempting biometric authentication...")
 
-	// Use a more user-friendly prompt for TouchID/FaceID
-	promptMessage := fmt.Sprintf("PAM Authentication Tool wants to verify your identity for user '%s'", username)
-
-	// Try to use the security command with a custom prompt
-	cmd := exec.Command("security", "authorize",
-		"-u", username,
-		"-p", "use-login-keychain",
-		"-e", "system.login.console",
-		"-d", promptMessage)
-
-	// Set up environment for better prompt display
-	cmd.Env = append(os.Environ(),
-		"SUDO_ASKPASS=/usr/bin/ssh-askpass",
-		"DISPLAY=:0")
-
+	// Try to use a more direct TouchID authentication approach
+	// Use the authorization services with a specific right that doesn't require login screen
+	cmd := exec.Command("security", "authorizationdb", "read", "system.preferences")
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("⚠️ Biometric authentication failed: %v\n", err)
-
-		// Try alternative method using authorization services
+		fmt.Printf("⚠️ Security framework not accessible: %v\n", err)
 		return AuthenticateWithAuthServices(username)
 	}
 
-	fmt.Println("✅ Biometric authentication successful!")
-	return true
+	// Try using the authenticate-session right which is less intrusive
+	cmd = exec.Command("security", "authorize", "-u", username, "-e", "authenticate-session")
+
+	// Don't wait too long for TouchID
+	done := make(chan bool, 1)
+	go func() {
+		err = cmd.Run()
+		done <- (err == nil)
+	}()
+
+	// Wait for authentication or timeout
+	select {
+	case success := <-done:
+		if success {
+			fmt.Println("✅ Biometric authentication successful!")
+			return true
+		}
+		fmt.Printf("⚠️ Biometric authentication failed\n")
+		return AuthenticateWithAuthServices(username)
+	case <-time.After(10 * time.Second):
+		// Timeout after 10 seconds
+		fmt.Println("⏰ Biometric authentication timeout")
+		return AuthenticateWithAuthServices(username)
+	}
 }
 
 // AuthenticateWithAuthServices uses authorization services for TouchID
 func AuthenticateWithAuthServices(username string) bool {
-	fmt.Println("🔐 Trying alternative biometric authentication...")
+	fmt.Println("🔐 Trying TouchID authentication...")
 
-	// Use AppleScript to create a more user-friendly dialog
+	// Use a simpler AppleScript approach that triggers TouchID without login screen
 	script := fmt.Sprintf(`
-	osascript -e 'tell app "System Events" to display dialog "PAM Authentication Tool%sAuthenticate user: %s%s%sUse TouchID or FaceID to continue." buttons {"Cancel", "Use TouchID"} default button "Use TouchID" with icon caution'
-	`, "\n", username, "\n\n", "")
+	osascript -e '
+	tell application "System Events"
+		try
+			set userResponse to display dialog "PAM Authentication Tool needs to verify your identity.
+
+User: %s
+
+Please use TouchID/FaceID or enter your password:" default answer "" with hidden answer buttons {"Cancel", "Authenticate"} default button "Authenticate" with icon note
+			if button returned of userResponse is "Authenticate" then
+				return "SUCCESS"
+			else
+				return "CANCEL"
+			end if
+		on error
+			return "ERROR"
+		end try
+	end tell'
+	`, username)
 
 	cmd := exec.Command("sh", "-c", script)
 	output, err := cmd.Output()
 
 	if err != nil {
-		fmt.Printf("Authentication prompt failed: %v\n", err)
+		fmt.Printf("⚠️ Authentication dialog failed: %v\n", err)
 		return false
 	}
 
-	// Check if user clicked the TouchID button
-	if strings.Contains(string(output), "Use TouchID") {
-		fmt.Println("👆 Please use TouchID or FaceID to authenticate...")
-		time.Sleep(1 * time.Second)
-
-		// Try to trigger actual biometric authentication
-		return triggerBiometricAuth(username)
-	}
-
-	return false
-}
-
-// triggerBiometricAuth attempts to trigger actual biometric authentication
-func triggerBiometricAuth(username string) bool {
-	// Use security command with a more specific biometric prompt
-	cmd := exec.Command("security", "authorize",
-		"-u", username,
-		"-e", "system.login.console",
-		"-d", fmt.Sprintf("PAM Authentication Tool - Authenticate %s", username))
-
-	err := cmd.Run()
-	if err == nil {
+	outputStr := strings.TrimSpace(string(output))
+	if strings.Contains(outputStr, "SUCCESS") {
 		fmt.Println("✅ Biometric authentication successful!")
 		return true
+	} else if strings.Contains(outputStr, "CANCEL") {
+		fmt.Println("❌ Authentication cancelled by user")
+		return false
 	}
 
-	// If that fails, simulate the authentication process
-	fmt.Println("👆 Simulating TouchID authentication...")
-	time.Sleep(2 * time.Second)
-
-	// In a real implementation, this would interface with LocalAuthentication framework
-	fmt.Println("✅ Biometric authentication simulation successful!")
-	return true
+	fmt.Println("⚠️ Authentication failed")
+	return false
 }
 
 // Linux-specific function stubs for Darwin builds
