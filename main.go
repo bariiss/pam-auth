@@ -44,9 +44,10 @@ var versionCmd = &cobra.Command{
 
 // Biometric authentication flags
 var (
-	useBiometric  bool
-	useRealPAM    bool
-	clearBioCache bool
+	useBiometric    bool
+	useRealPAM      bool
+	clearBioCache   bool
+	strictBiometric bool
 )
 
 func init() {
@@ -56,6 +57,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&useRealPAM, "real-pam", false, "Use real PAM authentication (Linux only) - requires system permissions")
 	// Add cache clearing flag for biometric authentication
 	rootCmd.Flags().BoolVar(&clearBioCache, "clear-cache", false, "Clear biometric authentication cache before authenticating")
+	// Add strict biometric flag - no password fallback
+	rootCmd.Flags().BoolVar(&strictBiometric, "strict-biometric", false, "Require biometric authentication only (no password fallback)")
 }
 
 func main() {
@@ -233,19 +236,41 @@ func runAuthentication() {
 	var password string
 
 	// If biometric authentication is requested and available, try it first
-	if useBiometric && runtime.GOOS == "darwin" && pam.IsBiometricAvailable() {
+	if (useBiometric || strictBiometric) && runtime.GOOS == "darwin" && pam.IsBiometricAvailable() {
 		// Set the global variables for the pam package
-		pam.UseBiometric = useBiometric
+		pam.UseBiometric = useBiometric || strictBiometric
 		pam.UseRealPAM = useRealPAM
 		pam.ClearBioCache = clearBioCache
 
-		fmt.Printf("🔐 Attempting biometric authentication for user: %s\n", username)
+		if strictBiometric {
+			fmt.Printf("� STRICT BIOMETRIC MODE: Only TouchID/FaceID authentication allowed\n")
+			fmt.Printf("�🔐 Attempting biometric authentication for user: %s\n", username)
+		} else {
+			fmt.Printf("🔐 Attempting biometric authentication for user: %s\n", username)
+		}
+
 		if pam.AuthenticateWithBiometrics(username) {
 			fmt.Printf("✅ Biometric authentication successful for user: %s\n", username)
 			showUserInfo(username)
 			return
 		}
-		fmt.Println("⚠️ Biometric authentication failed, falling back to password...")
+
+		// Handle biometric failure based on strict mode
+		if strictBiometric {
+			fmt.Printf("❌ Biometric authentication failed for user: %s\n", username)
+			fmt.Println("🔒 STRICT BIOMETRIC MODE: Password authentication is disabled")
+			fmt.Println("💡 Please ensure TouchID/FaceID is working and try again")
+			os.Exit(1)
+		} else {
+			fmt.Println("⚠️ Biometric authentication failed, falling back to password...")
+		}
+	}
+
+	// Skip password authentication if strict biometric mode is enabled
+	if strictBiometric {
+		fmt.Println("❌ Strict biometric mode enabled but biometric authentication not available")
+		fmt.Println("💡 TouchID/FaceID must be available on macOS for strict biometric mode")
+		os.Exit(1)
 	}
 
 	// Get password securely

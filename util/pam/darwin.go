@@ -349,7 +349,7 @@ func getHardwareUUID() {
 		for _, line := range lines {
 			if strings.Contains(line, "Hardware UUID") {
 				uuid := strings.TrimSpace(strings.Split(line, ":")[1])
-				fmt.Printf("🖥️ Hardware UUID: %s\n", uuid)
+				fmt.Printf("🖥️  Hardware UUID: %s\n", uuid)
 				break
 			}
 		}
