@@ -26,6 +26,7 @@ help:
 	@echo "=================================================="
 	@echo "$(YELLOW)Build Commands:$(RESET)"
 	@echo "  make build         - Build the application binary"
+	@echo "  make build-pam     - Build with PAM support (Linux)"
 	@echo "  make build-release - Build optimized release binary"
 	@echo "  make build-debug   - Build debug binary with symbols"
 	@echo ""
@@ -58,6 +59,11 @@ build:
 	@echo "$(BLUE)Building $(BINARY_NAME)...$(RESET)"
 	go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(MAIN_FILE)
 	@echo "$(GREEN)✅ Build completed: $(BINARY_NAME)$(RESET)"
+
+build-pam:
+	@echo "$(BLUE)Building $(BINARY_NAME) with PAM support...$(RESET)"
+	go build $(BUILD_FLAGS) -tags pam -o $(BINARY_NAME) $(MAIN_FILE)
+	@echo "$(GREEN)✅ Build completed with PAM support: $(BINARY_NAME)$(RESET)"
 
 build-release:
 	@echo "$(BLUE)Building release version...$(RESET)"

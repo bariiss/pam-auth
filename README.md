@@ -17,9 +17,20 @@ A cross-platform system authentication tool that supports both password and biom
 
 ## Installation
 
+### Quick Start (Any Platform)
+```bash
+# Run directly from GitHub (no local installation needed)
+go run github.com/bariiss/pam-auth@latest
+
+# With flags
+go run github.com/bariiss/pam-auth@latest --biometric
+go run github.com/bariiss/pam-auth@latest --help
+```
+
+### Local Development Setup
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/bariiss/pam-auth.git
 cd pam-auth
 
 # Install dependencies
@@ -30,10 +41,27 @@ make build
 
 # Run the application
 ./pam-auth
-
-# Or run directly without building
-make run
 ```
+
+### Linux PAM Support (Optional)
+For real PAM authentication on Linux, install PAM development libraries:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install libpam0g-dev
+
+# CentOS/RHEL
+sudo yum install pam-devel
+
+# Fedora
+sudo dnf install pam-devel
+
+# Then rebuild with PAM support
+go build -tags pam -v
+```
+
+**Note**: The application works on Linux without PAM libraries, but will use basic authentication instead of real system authentication.
 
 ## Usage
 
